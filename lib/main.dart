@@ -1,125 +1,291 @@
+//by Ivan loh and Yikai Liu
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MaterialApp(
+    home: DigitalPetApp(),
+  ));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class DigitalPetApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+  _DigitalPetAppState createState() => _DigitalPetAppState();
+}
+
+class _DigitalPetAppState extends State<DigitalPetApp> {
+  String petName = "Your Pet";
+  int happinessLevel = 50;
+  int hungerLevel = 50;
+  String petImage = 'assets/img_yellow.png';
+  String petMood = "Happy";
+  String moodEmoji = "😊";
+  Timer? _hungerTimer;
+  Timer? _winTimer;
+  Timer? _lossTimer;
+  bool hasWon = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startHungerTimer();
+    _startConditionTimers();
+  }
+
+  @override
+  void dispose() {
+    _hungerTimer?.cancel();
+    _winTimer?.cancel();
+    _lossTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startHungerTimer() {
+    _hungerTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      _increaseHungerAutomatically();
+    });
+  }
+
+  void _startConditionTimers() {
+    _lossTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (hungerLevel >= 100 && happinessLevel <= 10) {
+        _showGameOver();
+        timer.cancel();
+      }
+    });
+
+    _winTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (happinessLevel >= 80) {
+        hasWon = true;
+      } else {
+        hasWon = false;
+      }
+
+      if (hasWon && timer.tick >= 180) {
+        _showWinMessage();
+        timer.cancel();
+      }
+    });
+  }
+
+  void _increaseHungerAutomatically() {
+    setState(() {
+      hungerLevel = (hungerLevel + 5).clamp(0, 100);
+      if (hungerLevel >= 100) {
+        happinessLevel = (happinessLevel - 20).clamp(0, 100);
+      }
+      updatePetImage(happinessLevel);
+      updatePetMood(happinessLevel);
+    });
+  }
+
+  void _showGameOver() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Game Over"),
+          content: Text("Your pet's hunger reached 100 and happiness dropped to 10. Try again!"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetGame();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  void _showWinMessage() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("You Win!"),
+          content: Text("You kept your pet's happiness above 80 for 3 minutes!"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetGame();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  void _resetGame() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      petName = "Your Pet";
+      happinessLevel = 50;
+      hungerLevel = 50;
+      hasWon = false;
+    });
+    _startConditionTimers();
+  }
+
+  void _changePetName() async {
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        String name = petName;
+        return AlertDialog(
+          title: Text('Change Pet Name'),
+          content: TextField(
+            onChanged: (value) {
+              name = value;
+            },
+            decoration: InputDecoration(hintText: "Enter new pet name"),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(name);
+              },
+              child: Text('OK'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      setState(() {
+        petName = newName;
+      });
+    }
+  }
+
+  void _playWithPet() {
+    setState(() {
+      happinessLevel = (happinessLevel + 10).clamp(0, 100);
+      _updateHunger();
+      updatePetImage(happinessLevel);
+      updatePetMood(happinessLevel);
+    });
+  }
+
+  void _updateHunger() {
+    setState(() {
+      hungerLevel = (hungerLevel + 5).clamp(0, 100);
+      if (hungerLevel >= 100) {
+        happinessLevel = (happinessLevel - 20).clamp(0, 100);
+      }
+    });
+  }
+
+  void updatePetMood(int happinessLevel) {
+    setState(() {
+      if (happinessLevel > 70) {
+        petMood = "Happy";
+        moodEmoji = "😊";
+      } else if (happinessLevel >= 30 && happinessLevel <= 70) {
+        petMood = "Neutral";
+        moodEmoji = "😐";
+      } else {
+        petMood = "Unhappy";
+        moodEmoji = "😟";
+      }
+    });
+  }
+
+  void _feedPet() {
+    setState(() {
+      hungerLevel = (hungerLevel - 10).clamp(0, 100);
+      _updateHappiness();
+      updatePetImage(happinessLevel);
+      updatePetMood(happinessLevel);
+    });
+  }
+
+  void _updateHappiness() {
+    if (hungerLevel > 0 && hungerLevel < 30) {
+      happinessLevel = (happinessLevel - 20).clamp(0, 100);
+    } else {
+      happinessLevel = (happinessLevel + 10).clamp(0, 100);
+    }
+    updatePetImage(happinessLevel);
+    updatePetMood(happinessLevel);
+  }
+
+  void updatePetImage(int happinessLevel) {
+    setState(() {
+      if (happinessLevel > 70) {
+        petImage = 'assets/img_green.png';
+      } else if (happinessLevel >= 30 && happinessLevel <= 70) {
+        petImage = 'assets/img_yellow.png';
+      } else {
+        petImage = 'assets/img_red.png';
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text('Digital Pet'),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
             Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              'Name: $petName',
+              style: TextStyle(fontSize: 32.0),
+            ),
+            SizedBox(height: 16.0),
+            Text(
+              '$petMood $moodEmoji',
+              style: TextStyle(fontSize: 24.0),
+            ),
+            SizedBox(height: 8.0),
+            Image.asset(
+              petImage,
+              height: 150,
+              width: 150,
+            ),
+            SizedBox(height: 16.0),
+            Text(
+              'Happiness Level: $happinessLevel',
+              style: TextStyle(fontSize: 20.0),
+            ),
+            SizedBox(height: 16.0),
+            Text(
+              'Hunger Level: $hungerLevel',
+              style: TextStyle(fontSize: 20.0),
+            ),
+            SizedBox(height: 32.0),
+            ElevatedButton(
+              onPressed: _playWithPet,
+              child: Text('Play with Your Pet'),
+            ),
+            SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: _feedPet,
+              child: Text('Feed Your Pet'),
+            ),
+            SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: _changePetName,
+              child: Text('Change Pet Name'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
